@@ -88,11 +88,7 @@ func parseServers(servers []string) []string {
 }
 
 func Connect(server string) {
-
-	fmt.Println("Connecting to " + server)
-
 	user := "root"
-
 	// Is username passed?
 	if strings.Contains(server, "@") {
 		usernameSplit := strings.Split(server, "@")
@@ -101,6 +97,14 @@ func Connect(server string) {
 	}
 
 	fileToLog := "/var/log/httpd/error_log"
+	// Is filename passed?
+	if strings.Contains(server, ":") {
+		fileSplit := strings.Split(server, ":")
+		fileToLog = fileSplit[1]
+		server = fileSplit[0]
+	}
+
+	fmt.Printf("Connecting to %v as %v \n", server, user)
 
 	// Create MakeConfig instance with remote username, server address and path to private key.
 	ssh := &easyssh.MakeConfig{
