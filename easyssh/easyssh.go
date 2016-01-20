@@ -25,7 +25,7 @@ import (
 type MakeConfig struct {
 	User   string
 	Server string
-	Key    string
+	Key    []string
 	Port   string
 }
 
@@ -53,14 +53,22 @@ func getKeyFile(keypath string) (ssh.Signer, error) {
 
 // connects to remote server using MakeConfig struct and returns *ssh.Session
 func (ssh_conf *MakeConfig) Connect() (*ssh.Session, error) {
-	pubkey, err := getKeyFile(ssh_conf.Key)
-	if err != nil {
-		return nil, err
+
+	var keys []ssh.Signer
+
+	for _, v := range ssh_conf.Key {
+		pubkey, err := getKeyFile(v)
+		if err != nil {
+			continue
+		}
+		keys = append(keys, pubkey)
 	}
 
 	config := &ssh.ClientConfig{
 		User: ssh_conf.User,
-		Auth: []ssh.AuthMethod{ssh.PublicKeys(pubkey)},
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(keys...),
+		},
 	}
 
 	client, err := ssh.Dial("tcp", ssh_conf.Server+":"+ssh_conf.Port, config)
