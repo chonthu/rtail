@@ -4,21 +4,34 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/chonthu/rtail/easyssh"
 	"io"
+	"math/rand"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/chonthu/rtail/easyssh"
+	"github.com/fatih/color"
 )
 
 var Follow bool
 
+var (
+	colors []func(...interface{}) string = []func(...interface{}) string{
+		color.New(color.FgYellow).SprintFunc(),
+		color.New(color.FgRed).SprintFunc(),
+		color.New(color.FgGreen).SprintFunc(),
+		color.New(color.FgBlue).SprintFunc(),
+		color.New(color.FgMagenta).SprintFunc(),
+	}
+)
+
 func main() {
 
 	servers := parseServers(os.Args[1:])
-	flag.BoolVar(&Follow, "f", true, "should we follow the file ?")
+	flag.BoolVar(&Follow, "f", false, "should we follow the file ?")
 	flag.Parse()
 
 	if len(servers) < 1 {
@@ -49,6 +62,7 @@ func main() {
 	wg.Wait()
 }
 
+// Prases provided string into servers
 func parseServers(servers []string) []string {
 	var out []string
 
@@ -104,7 +118,8 @@ func Connect(server string) {
 		server = fileSplit[0]
 	}
 
-	fmt.Printf("Connecting to %v as %v \n", server, user)
+	c := colors[rand.Intn(len(colors))]
+	fmt.Printf("Connecting to %v as %v \n", c(server), user)
 
 	// Create MakeConfig instance with remote username, server address and path to private key.
 	ssh := &easyssh.MakeConfig{
@@ -131,7 +146,7 @@ func Connect(server string) {
 		case <-done:
 			stillGoing = false
 		case line := <-channel:
-			fmt.Printf("[%s] %s\n", server, line)
+			fmt.Printf("[%s] %s\n", c(server), line)
 		}
 	}
 }
