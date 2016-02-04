@@ -11,9 +11,10 @@ class Rtail < Formula
 
   # depends_on "cmake" => :build
   # depends_on :x11 # if your formula requires any X11/XQuartz components
+  depends_on :arch => :intel
 
   def install
-    # ENV.deparallelize  # if your formula fails when building in parallel
+    bin.install Dir['*']
   end
 
   test do
