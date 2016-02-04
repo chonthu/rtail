@@ -1,6 +1,10 @@
 #Rtail
 Remote tail logging
 
+## OSX Install with Homebrew
+
+	brew install https://raw.githubusercontent.com/chonthu/rtail/master/rtail.rb
+
 ## Use it just as you would regular tail locally
 
 	rtail -f ec2-user@webserver1.myserver.com:/var/log/httpd/error_log
