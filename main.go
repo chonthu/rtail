@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"math/rand"
 	"os"
@@ -13,8 +12,6 @@ import (
 	"github.com/chonthu/ssh"
 	"github.com/fatih/color"
 )
-
-var Follow bool
 
 var (
 	colors []func(...interface{}) string = []func(...interface{}) string{
@@ -29,8 +26,6 @@ var (
 func main() {
 
 	servers := parseServers(os.Args[1:])
-	flag.BoolVar(&Follow, "f", false, "should we follow the file ?")
-	flag.Parse()
 
 	if len(servers) < 1 {
 		fmt.Println("No servers passed")
@@ -46,7 +41,6 @@ func main() {
 		wg.Add(1)
 		go func(s string, jobs <-chan int) {
 			defer wg.Done()
-			fmt.Println(s)
 			Connect(s)
 		}(s, jobs)
 	}
@@ -99,6 +93,32 @@ func parseServers(servers []string) []string {
 	return out
 }
 
+func logFileShorcodes(name string) string {
+	switch name {
+	case "access_log":
+		return "/var/log/httpd/access_log"
+	case "error_log":
+		return "/var/log/httpd/error_log"
+	default:
+		return name
+	}
+}
+
+func execShorcodes(name string) string {
+	switch name {
+	case "varnish_url":
+		return "varnishlog -g request | grep reqURL"
+	case "varnish_hit":
+		return "varnishlog -q \"VCL_call eq 'HIT'\" -d"
+	case "varnish_miss":
+		return "varnishlog -q \"VCL_call eq 'MISS'\" -d"
+	case "varnish":
+		return "varnishlog"
+	default:
+		return name
+	}
+}
+
 func Connect(server string) {
 	user := "root"
 	// Is username passed?
@@ -109,10 +129,21 @@ func Connect(server string) {
 	}
 
 	fileToLog := "/var/log/httpd/error_log"
+	cmdString := fmt.Sprintf("tail %v", fileToLog)
 	// Is filename passed?
-	if strings.Contains(server, ":") {
+	if strings.Contains(server, "%") {
+		fileSplit := strings.Split(server, "%")
+		server = fileSplit[0]
+		if strings.Contains(fileSplit[1], ":") {
+			paramSplit := strings.Split(fileSplit[1], ":")
+			cmdString = fmt.Sprintf(execShorcodes(paramSplit[0]), paramSplit[1:])
+		} else {
+			cmdString = execShorcodes(fileSplit[1])
+		}
+
+	} else if strings.Contains(server, ":") {
 		fileSplit := strings.Split(server, ":")
-		fileToLog = fileSplit[1]
+		fileToLog = logFileShorcodes(fileSplit[1])
 		server = fileSplit[0]
 	}
 
@@ -128,13 +159,9 @@ func Connect(server string) {
 		Port: "22",
 	}
 
-	follow := ""
-	if Follow {
-		follow = "-f"
-	}
-
 	// Call Run method with command you want to run on remote server.
-	channel, done, err := ssh.Stream(s, fmt.Sprintf("tail %v %v", follow, fileToLog))
+	fmt.Println("Running: ", cmdString)
+	channel, done, err := ssh.Stream(s, cmdString)
 	if err != nil {
 		fmt.Errorf("Stream failed: %s", err)
 	}
