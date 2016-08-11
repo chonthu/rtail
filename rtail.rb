@@ -5,9 +5,9 @@
 class Rtail < Formula
   desc "Remote tail logging"
   homepage "https://github.com/chonthu/rtail"
-  url "https://s3.amazonaws.com/rlsr/rtail/darwin/0.0.1/rtail.gz"
-  version "0.0.1"
-  sha256 "bf9dc8fffcb003731e4bb92646ce541f4b5e0e7dfafdc08a0825cee578de173f"
+  url "https://github.com/chonthu/rtail/releases/download/2.0.0/rtail.gz"
+  version "2.0.0"
+  sha256 ""
 
   # depends_on "cmake" => :build
   # depends_on :x11 # if your formula requires any X11/XQuartz components
