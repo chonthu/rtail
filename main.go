@@ -2,12 +2,15 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/chonthu/ssh"
 	"github.com/fatih/color"
@@ -21,9 +24,45 @@ var (
 		color.New(color.FgBlue).SprintFunc(),
 		color.New(color.FgMagenta).SprintFunc(),
 	}
+
+	CONFIG_PATH = []string{
+		".rtail.yml",
+		"~/.rtail.yml",
+	}
 )
 
+var config = new(Config)
+
+type Config struct {
+	Alliases map[string]string
+	Commands map[string]string
+}
+
+func initConfig(file *os.File) {
+	b, err := ioutil.ReadAll(file)
+	if err != nil {
+		fmt.Println("Invalid syntax in config file")
+		os.Exit(1)
+	}
+
+	err = yaml.Unmarshal(b, &config)
+	if err != nil {
+		fmt.Println("Invalid syntax in config file")
+		os.Exit(1)
+	}
+}
+
 func main() {
+
+	// Check if config is passed
+	for _, v := range CONFIG_PATH {
+		file, err := os.Open(v) // For read access.
+		if err == nil {
+			initConfig(file)
+		}
+	}
+
+	fmt.Println(config)
 
 	servers := parseServers(os.Args[1:])
 
@@ -100,6 +139,11 @@ func logFileShorcodes(name string) string {
 	case "error_log":
 		return "/var/log/httpd/error_log"
 	default:
+
+		if _, ok := config.Alliases[name]; ok {
+			return config.Alliases[name]
+		}
+
 		return name
 	}
 }
@@ -112,9 +156,14 @@ func execShorcodes(name string) string {
 		return "varnishlog -q \"VCL_call eq 'HIT'\" -d"
 	case "varnish_miss":
 		return "varnishlog -q \"VCL_call eq 'MISS'\" -d"
+	case "varnish_security":
+		return "varnishlog | grep security.vcl"
 	case "varnish":
 		return "varnishlog"
 	default:
+		if _, ok := config.Commands[name]; ok {
+			return config.Commands[name]
+		}
 		return name
 	}
 }
@@ -129,7 +178,7 @@ func Connect(server string) {
 	}
 
 	fileToLog := "/var/log/httpd/error_log"
-	cmdString := fmt.Sprintf("tail %v", fileToLog)
+	cmdString := fmt.Sprintf("tail -f %v", fileToLog)
 	// Is filename passed?
 	if strings.Contains(server, "%") {
 		fileSplit := strings.Split(server, "%")
@@ -145,6 +194,7 @@ func Connect(server string) {
 		fileSplit := strings.Split(server, ":")
 		fileToLog = logFileShorcodes(fileSplit[1])
 		server = fileSplit[0]
+		cmdString = fmt.Sprintf("tail -f %v", fileToLog)
 	}
 
 	c := colors[rand.Intn(len(colors))]
