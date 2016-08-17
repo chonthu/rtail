@@ -34,7 +34,7 @@ var (
 var config = new(Config)
 
 type Config struct {
-	Alliases map[string]string
+	Aliases  map[string]string
 	Commands map[string]string
 }
 
@@ -61,8 +61,6 @@ func main() {
 			initConfig(file)
 		}
 	}
-
-	fmt.Println(config)
 
 	servers := parseServers(os.Args[1:])
 
@@ -140,8 +138,8 @@ func logFileShorcodes(name string) string {
 		return "/var/log/httpd/error_log"
 	default:
 
-		if _, ok := config.Alliases[name]; ok {
-			return config.Alliases[name]
+		if _, ok := config.Aliases[name]; ok {
+			return config.Aliases[name]
 		}
 
 		return name

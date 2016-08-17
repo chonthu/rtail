@@ -6,7 +6,8 @@ Remote multiplex server tailing & command execution runner
 
 ### OSX Install with Homebrew
 
-	brew install https://raw.githubusercontent.com/chonthu/rtail/master/rtail.rb
+	brew tap chonthu/tap
+	brew install rtail
 
 ### From source
 
@@ -33,11 +34,11 @@ Pass as many server as you would like
 
 	rtail "root@webserver[1-5].myserver.com:/var/log/httpd/error_log"
 
-### Custom alliases & commands
+### Custom aliases & commands
 create a rtail.yml fil ein your working directory or in your home folder
 
 	---
-	alliases:
+	aliases:
 		error_log: /var/log/httpd/error_log
 
 	commands:
