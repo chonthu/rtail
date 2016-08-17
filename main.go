@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	colors []func(...interface{}) string = []func(...interface{}) string{
+	colors = []func(...interface{}) string{
 		color.New(color.FgYellow).SprintFunc(),
 		color.New(color.FgRed).SprintFunc(),
 		color.New(color.FgGreen).SprintFunc(),
@@ -25,7 +25,7 @@ var (
 		color.New(color.FgMagenta).SprintFunc(),
 	}
 
-	CONFIG_PATH = []string{
+	configPath = []string{
 		".rtail.yml",
 		"~/.rtail.yml",
 	}
@@ -55,14 +55,18 @@ func initConfig(file *os.File) {
 func main() {
 
 	// Check if config is passed
-	for _, v := range CONFIG_PATH {
+	for _, v := range configPath {
 		file, err := os.Open(v) // For read access.
 		if err == nil {
 			initConfig(file)
 		}
 	}
 
-	servers := parseServers(os.Args[1:])
+	servers, err := parseServers(os.Args[1:])
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	if len(servers) < 1 {
 		fmt.Println("No servers passed")
@@ -92,7 +96,7 @@ func main() {
 }
 
 // Prases provided string into servers
-func parseServers(servers []string) []string {
+func parseServers(servers []string) ([]string, error) {
 	var out []string
 
 	for _, v := range servers {
@@ -106,7 +110,7 @@ func parseServers(servers []string) []string {
 			res := re.FindAllStringSubmatch(v, -1)
 
 			if len(res) == 0 {
-				panic("Invalid server regex")
+				return out, fmt.Errorf("Invalid server regex")
 			}
 
 			if len(res[0]) == 3 {
@@ -118,7 +122,7 @@ func parseServers(servers []string) []string {
 			} else if len(res[0]) == 2 {
 				out = append(out, strings.Replace(v, res[0][0], res[0][1], -1))
 			} else {
-				panic("Invalid server grouping")
+				return out, fmt.Errorf("Invalid server grouping")
 			}
 
 			continue
@@ -127,7 +131,7 @@ func parseServers(servers []string) []string {
 		out = append(out, v)
 	}
 
-	return out
+	return out, nil
 }
 
 func logFileShorcodes(name string) string {
@@ -166,6 +170,7 @@ func execShorcodes(name string) string {
 	}
 }
 
+// Connect trying t connect to the server passed
 func Connect(server string) {
 	user := "root"
 	// Is username passed?
@@ -196,7 +201,7 @@ func Connect(server string) {
 	}
 
 	c := colors[rand.Intn(len(colors))]
-	fmt.Printf("Connecting to %v as %v \n", c(server), user)
+	fmt.Printf("[%v] trying to connect as %v \n", c(server), user)
 
 	// Create MakeConfig instance with remote username, server address and path to private key.
 	s := &ssh.MakeConfig{
@@ -208,10 +213,11 @@ func Connect(server string) {
 	}
 
 	// Call Run method with command you want to run on remote server.
-	fmt.Println("Running: ", cmdString)
+	fmt.Printf("[%v] runinng command: %v \n", c(server), cmdString)
 	channel, done, err := ssh.Stream(s, cmdString)
 	if err != nil {
-		fmt.Errorf("Stream failed: %s", err)
+		fmt.Println(fmt.Errorf("[%v] stream failed: %s", c(server), err))
+		return
 	}
 	stillGoing := true
 	for stillGoing {
