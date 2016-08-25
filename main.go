@@ -14,6 +14,8 @@ import (
 
 	"github.com/chonthu/ssh"
 	"github.com/fatih/color"
+
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -27,15 +29,82 @@ var (
 
 	configPath = []string{
 		".rtail.yml",
-		"~/.rtail.yml",
+		os.Getenv("HOME") + "/.rtail.yml",
 	}
+
+	config     = new(Config)
+	configFile = kingpin.Flag("config", "path to config, different from default").String()
+	identity   = kingpin.Flag("indetityFile", "path to the identity file").Short('i').Strings()
 )
 
-var config = new(Config)
+// Server struct
+type Server struct {
+	user string
+	host string
+	cmd  string
+}
 
+type serverList []Server
+
+func (i *serverList) Set(value string) error {
+
+	// Is username passed? if not use root
+	user := "root"
+	if strings.Contains(value, "@") {
+		usernameSplit := strings.Split(value, "@")
+		user = usernameSplit[0]
+		value = usernameSplit[1]
+	}
+
+	fileToLog := "/var/log/httpd/error_log"
+	cmdString := fmt.Sprintf("tail -f %v", fileToLog)
+
+	// Is filename passed?
+	if strings.Contains(value, "%") {
+		fileSplit := strings.Split(value, "%")
+		value = fileSplit[0]
+		if strings.Contains(fileSplit[1], ":") {
+			paramSplit := strings.Split(fileSplit[1], ":")
+			cmdString = fmt.Sprintf(execShorcodes(paramSplit[0]), paramSplit[1:])
+		} else {
+			cmdString = execShorcodes(fileSplit[1])
+		}
+
+	} else if strings.Contains(value, ":") {
+		fileSplit := strings.Split(value, ":")
+		fileToLog = logFileShorcodes(fileSplit[1])
+		value = fileSplit[0]
+		cmdString = fmt.Sprintf("tail -f %v", fileToLog)
+	}
+
+	*i = append(*i, Server{user, value, cmdString})
+	return nil
+}
+
+func (i *serverList) String() string {
+	return ""
+}
+
+func (i *serverList) IsCumulative() bool {
+	return true
+}
+
+// ServerList is a list of Servers
+func ServerList(s kingpin.Settings) (target *[]Server) {
+	target = new([]Server)
+	s.SetValue((*serverList)(target))
+	return
+}
+
+// Config is a struct of our config options
 type Config struct {
 	Aliases  map[string]string
 	Commands map[string]string
+	Hosts    []string
+}
+
+func listHosts() []string {
+	return config.Hosts
 }
 
 func initConfig(file *os.File) {
@@ -53,41 +122,54 @@ func initConfig(file *os.File) {
 }
 
 func main() {
-
 	// Check if config is passed
+	if *configFile != "" {
+		configPath = append([]string{*configFile}, configPath...)
+	}
+
 	for _, v := range configPath {
 		file, err := os.Open(v) // For read access.
 		if err == nil {
+			defer file.Close()
 			initConfig(file)
+			break
 		}
 	}
 
-	servers, err := parseServers(os.Args[1:])
+	// boostrap commandline cli
+	servers := ServerList(kingpin.Arg("servers", "the servers to parse").Required().HintAction(listHosts))
+	kingpin.Version("2.1.0").Author("Nithin Meppurathu")
+	kingpin.CommandLine.Help = "A log parser and command execution multiplexer"
+	kingpin.CommandLine.HelpFlag.Short('h')
+	kingpin.CommandLine.VersionFlag.Short('v')
+	kingpin.Parse()
+
+	srv, err := rangeSplitServers(*servers)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	if len(servers) < 1 {
+	if len(srv) < 1 {
 		fmt.Println("No servers passed")
 		os.Exit(1)
 	}
 
-	jobs := make(chan int, len(servers))
+	jobs := make(chan int, len(srv))
 
 	var wg sync.WaitGroup
 
 	// Spawn example workers
-	for _, s := range servers {
+	for _, s := range srv {
 		wg.Add(1)
-		go func(s string, jobs <-chan int) {
+		go func(s Server, jobs <-chan int) {
 			defer wg.Done()
-			Connect(s)
+			Connect(&s)
 		}(s, jobs)
 	}
 
 	// Create example messages
-	for i := 0; i < len(servers); i++ {
+	for i := 0; i < len(srv); i++ {
 		jobs <- i
 	}
 
@@ -95,19 +177,19 @@ func main() {
 	wg.Wait()
 }
 
-// Prases provided string into servers
-func parseServers(servers []string) ([]string, error) {
-	var out []string
+// Prases provided server to check for expansions
+func rangeSplitServers(servers []Server) ([]Server, error) {
+	var out []Server
 
 	for _, v := range servers {
 
-		if 0 == strings.Index(v, "-") {
+		if 0 == strings.Index(v.host, "-") {
 			continue
 		}
 
-		if strings.Contains(v, "[") {
+		if strings.Contains(v.host, "[") {
 			re, _ := regexp.Compile(`\[(\d+)-(\d+)\]`)
-			res := re.FindAllStringSubmatch(v, -1)
+			res := re.FindAllStringSubmatch(v.host, -1)
 
 			if len(res) == 0 {
 				return out, fmt.Errorf("Invalid server regex")
@@ -117,10 +199,14 @@ func parseServers(servers []string) ([]string, error) {
 				min, _ := strconv.Atoi(res[0][1])
 				max, _ := strconv.Atoi(res[0][2])
 				for num := min; num <= max; num++ {
-					out = append(out, strings.Replace(v, res[0][0], strconv.Itoa(num), -1))
+					cp := v
+					cp.host = strings.Replace(v.host, res[0][0], strconv.Itoa(num), -1)
+					out = append(out, cp)
 				}
 			} else if len(res[0]) == 2 {
-				out = append(out, strings.Replace(v, res[0][0], res[0][1], -1))
+				cp := v
+				cp.host = strings.Replace(v.host, res[0][0], res[0][1], -1)
+				out = append(out, cp)
 			} else {
 				return out, fmt.Errorf("Invalid server grouping")
 			}
@@ -171,52 +257,32 @@ func execShorcodes(name string) string {
 }
 
 // Connect trying t connect to the server passed
-func Connect(server string) {
-	user := "root"
-	// Is username passed?
-	if strings.Contains(server, "@") {
-		usernameSplit := strings.Split(server, "@")
-		user = usernameSplit[0]
-		server = usernameSplit[1]
-	}
+func Connect(server *Server) {
 
-	fileToLog := "/var/log/httpd/error_log"
-	cmdString := fmt.Sprintf("tail -f %v", fileToLog)
-	// Is filename passed?
-	if strings.Contains(server, "%") {
-		fileSplit := strings.Split(server, "%")
-		server = fileSplit[0]
-		if strings.Contains(fileSplit[1], ":") {
-			paramSplit := strings.Split(fileSplit[1], ":")
-			cmdString = fmt.Sprintf(execShorcodes(paramSplit[0]), paramSplit[1:])
-		} else {
-			cmdString = execShorcodes(fileSplit[1])
-		}
-
-	} else if strings.Contains(server, ":") {
-		fileSplit := strings.Split(server, ":")
-		fileToLog = logFileShorcodes(fileSplit[1])
-		server = fileSplit[0]
-		cmdString = fmt.Sprintf("tail -f %v", fileToLog)
-	}
-
+	// Use a random color from the color list
 	c := colors[rand.Intn(len(colors))]
-	fmt.Printf("[%v] trying to connect as %v \n", c(server), user)
+	fmt.Printf("[%v] trying to connect as %v \n", c(server.host), server.user)
+
+	keys := []string{os.Getenv("HOME") + "/.ssh/id_rsa", os.Getenv("HOME") + "/.ssh/id_dsa"}
+
+	if len(*identity) > 0 {
+		keys = *identity
+	}
 
 	// Create MakeConfig instance with remote username, server address and path to private key.
 	s := &ssh.MakeConfig{
-		User:   user,
-		Server: server,
+		User:   server.user,
+		Server: server.host,
 		// Optional key or Password without either we try to contact your agent SOCKET
-		Key:  []string{"/.ssh/id_rsa", "/.ssh/id_dsa"},
+		Key:  keys,
 		Port: "22",
 	}
 
 	// Call Run method with command you want to run on remote server.
-	fmt.Printf("[%v] runinng command: %v \n", c(server), cmdString)
-	channel, done, err := ssh.Stream(s, cmdString)
+	fmt.Printf("[%v] runinng command: %v \n", c(server.host), server.cmd)
+	channel, done, err := ssh.Stream(s, server.cmd)
 	if err != nil {
-		fmt.Println(fmt.Errorf("[%v] stream failed: %s", c(server), err))
+		fmt.Println(fmt.Errorf("[%v] stream failed: %s", c(server.host), err))
 		return
 	}
 	stillGoing := true
@@ -225,7 +291,7 @@ func Connect(server string) {
 		case <-done:
 			stillGoing = false
 		case line := <-channel:
-			fmt.Printf("[%s] %s\n", c(server), line)
+			fmt.Printf("[%s] %s\n", c(server.host), line)
 		}
 	}
 }

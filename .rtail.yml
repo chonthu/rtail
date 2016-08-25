@@ -3,3 +3,5 @@ aliases:
     error_log: /var/log/httpd/error_log
 commands:
     varnish: varnishlog
+hosts:
+    - spin.web1
