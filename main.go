@@ -150,11 +150,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if len(srv) < 1 {
-		fmt.Println("No servers passed")
-		os.Exit(1)
-	}
-
 	jobs := make(chan int, len(srv))
 
 	var wg sync.WaitGroup
