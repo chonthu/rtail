@@ -1,7 +1,12 @@
 ---
 aliases:
+    access_log: /var/log/httpd/access_log
     error_log: /var/log/httpd/error_log
 commands:
     varnish: varnishlog
+    varnish_url: varnishlog -g request | grep reqURL
+    varnish_hit: varnishlog -q \"VCL_call eq 'HIT'\" -d
+    varnish_miss: varnishlog -q \"VCL_call eq 'MISS'\" -d
+    varnish_security: varnishlog | grep security.vcl
 hosts:
     - spin.web1

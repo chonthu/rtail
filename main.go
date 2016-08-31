@@ -216,39 +216,18 @@ func rangeSplitServers(servers []Server) ([]Server, error) {
 }
 
 func logFileShorcodes(name string) string {
-	switch name {
-	case "access_log":
-		return "/var/log/httpd/access_log"
-	case "error_log":
-		return "/var/log/httpd/error_log"
-	default:
-
-		if _, ok := config.Aliases[name]; ok {
-			return config.Aliases[name]
-		}
-
-		return name
+	if _, ok := config.Aliases[name]; ok {
+		return config.Aliases[name]
 	}
+
+	return name
 }
 
 func execShorcodes(name string) string {
-	switch name {
-	case "varnish_url":
-		return "varnishlog -g request | grep reqURL"
-	case "varnish_hit":
-		return "varnishlog -q \"VCL_call eq 'HIT'\" -d"
-	case "varnish_miss":
-		return "varnishlog -q \"VCL_call eq 'MISS'\" -d"
-	case "varnish_security":
-		return "varnishlog | grep security.vcl"
-	case "varnish":
-		return "varnishlog"
-	default:
-		if _, ok := config.Commands[name]; ok {
-			return config.Commands[name]
-		}
-		return name
+	if _, ok := config.Commands[name]; ok {
+		return config.Commands[name]
 	}
+	return name
 }
 
 // Connect trying t connect to the server passed
