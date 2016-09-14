@@ -37,6 +37,20 @@ var (
 	identity   = kingpin.Flag("indetityFile", "path to the identity file").Short('i').Strings()
 )
 
+const exampleConfig = `---
+aliases:
+	access_log: /var/log/httpd/access_log
+	error_log: /var/log/httpd/error_log
+commands:
+	varnish: varnishlog
+	varnish_url: varnishlog -g request | grep reqURL
+	varnish_hit: varnishlog -q \"VCL_call eq 'HIT'\" -d
+	varnish_miss: varnishlog -q \"VCL_call eq 'MISS'\" -d
+	varnish_security: varnishlog | grep security.vcl
+hosts:
+	- google.web1
+`
+
 // Server struct
 type Server struct {
 	user string
@@ -144,32 +158,50 @@ func main() {
 	kingpin.CommandLine.VersionFlag.Short('v')
 	kingpin.Parse()
 
-	srv, err := rangeSplitServers(*servers)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	switch os.Args[1] {
+	case "init":
+
+		if _, err := os.Stat(os.Getenv("HOME") + "/.rtail"); os.IsNotExist(err) {
+			fmt.Println("creating config file in home directory")
+			f, err := os.Create(os.Getenv("HOME") + "/.rtail")
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				f.Write([]byte(exampleConfig))
+				f.Close()
+			}
+		} else {
+			fmt.Println(colors[1](".rtail config file already exists in home directory"))
+		}
+		break
+	default:
+		srv, err := rangeSplitServers(*servers)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		jobs := make(chan int, len(srv))
+
+		var wg sync.WaitGroup
+
+		// Spawn example workers
+		for _, s := range srv {
+			wg.Add(1)
+			go func(s Server, jobs <-chan int) {
+				defer wg.Done()
+				Connect(&s)
+			}(s, jobs)
+		}
+
+		// Create example messages
+		for i := 0; i < len(srv); i++ {
+			jobs <- i
+		}
+
+		close(jobs)
+		wg.Wait()
 	}
-
-	jobs := make(chan int, len(srv))
-
-	var wg sync.WaitGroup
-
-	// Spawn example workers
-	for _, s := range srv {
-		wg.Add(1)
-		go func(s Server, jobs <-chan int) {
-			defer wg.Done()
-			Connect(&s)
-		}(s, jobs)
-	}
-
-	// Create example messages
-	for i := 0; i < len(srv); i++ {
-		jobs <- i
-	}
-
-	close(jobs)
-	wg.Wait()
 }
 
 // Prases provided server to check for expansions

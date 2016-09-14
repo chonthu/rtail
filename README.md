@@ -35,7 +35,9 @@ Pass as many server as you would like
 	rtail "root@webserver[1-5].myserver.com:/var/log/httpd/error_log"
 
 ### Custom aliases & commands
-create a rtail.yml fil ein your working directory or in your home folder
+create a rtail.yml file in your working directory or in your home folder
+
+or use the built in shortcut `rtail init`
 
 	---
 	aliases:
