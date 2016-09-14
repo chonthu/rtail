@@ -1,4 +1,4 @@
-Rtail
+Rtail ![travis](https://travis-ci.org/chonthu/rtail.svg?branch=master)
 ===============================
 Remote multiplex server tailing & command execution runner
 

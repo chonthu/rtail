@@ -138,7 +138,7 @@ func main() {
 
 	// boostrap commandline cli
 	servers := ServerList(kingpin.Arg("servers", "the servers to parse").Required().HintAction(listHosts))
-	kingpin.Version("2.1.0").Author("Nithin Meppurathu")
+	kingpin.Version("2.2.1").Author("Nithin Meppurathu")
 	kingpin.CommandLine.Help = "A log parser and command execution multiplexer"
 	kingpin.CommandLine.HelpFlag.Short('h')
 	kingpin.CommandLine.VersionFlag.Short('v')
