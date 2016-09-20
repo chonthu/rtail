@@ -35,6 +35,8 @@ var (
 	config     = new(Config)
 	configFile = kingpin.Flag("config", "path to config, different from default").String()
 	identity   = kingpin.Flag("indetityFile", "path to the identity file").Short('i').Strings()
+
+	Version string
 )
 
 const exampleConfig = `---
@@ -152,7 +154,7 @@ func main() {
 
 	// boostrap commandline cli
 	servers := ServerList(kingpin.Arg("servers", "the servers to parse").Required().HintAction(listHosts))
-	kingpin.Version("2.2.1").Author("Nithin Meppurathu")
+	kingpin.Version(Version).Author("Nithin Meppurathu")
 	kingpin.CommandLine.Help = "A log parser and command execution multiplexer"
 	kingpin.CommandLine.HelpFlag.Short('h')
 	kingpin.CommandLine.VersionFlag.Short('v')
