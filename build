@@ -2,6 +2,6 @@
 
 echo "Building `git describe --tags --dirty --always`"
 go build -ldflags "-X main.Version=`git describe --tags --dirty --always`"
-#gzip rtail
+gzip rtail
 echo "Sha256:"
 shasum -a 256 rtail.gz
