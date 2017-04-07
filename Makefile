@@ -8,5 +8,9 @@ test:
 build:
 	go build -ldflags "-X main.Version=$(COMMIT)"
 
-package: build
-	@sh -c "'$(CURDIR)/bin/package.sh'"
+zip:
+	gzip rtail
+
+package: test build zip
+	go run release/release.go $(COMMIT) rtail.gz > rtail.rb
+	
