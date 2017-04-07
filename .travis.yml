@@ -9,5 +9,7 @@ install:
   - go get gopkg.in/alecthomas/kingpin.v2
   - go get gopkg.in/yaml.v2
 
+gobuild_args: -x -ldflags "-X main.Version=`git describe --tags --dirty --always`"
+
 script:
  - go test -v ./...
