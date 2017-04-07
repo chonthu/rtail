@@ -18,40 +18,44 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+const (
+	configFileName = ".rtail.yml"
+)
+
 var (
-	colors = []func(...interface{}) string{
-		color.New(color.FgYellow).SprintFunc(),
-		color.New(color.FgRed).SprintFunc(),
-		color.New(color.FgGreen).SprintFunc(),
-		color.New(color.FgBlue).SprintFunc(),
-		color.New(color.FgMagenta).SprintFunc(),
+	colors = map[string]func(...interface{}) string{
+		"yellow":  color.New(color.FgYellow).SprintFunc(),
+		"red":     color.New(color.FgRed).SprintFunc(),
+		"green":   color.New(color.FgGreen).SprintFunc(),
+		"blue":    color.New(color.FgBlue).SprintFunc(),
+		"magenta": color.New(color.FgMagenta).SprintFunc(),
 	}
 
 	configPath = []string{
-		".rtail.yml",
-		os.Getenv("HOME") + "/.rtail.yml",
+		configFileName,
+		os.Getenv("HOME") + "/" + configFileName,
 	}
 
 	config     = new(Config)
 	configFile = kingpin.Flag("config", "path to config, different from default").String()
 	identity   = kingpin.Flag("indetityFile", "path to the identity file").Short('i').Strings()
 
+	// Version to be exported
 	Version string
 )
 
 const exampleConfig = `---
 aliases:
-	access_log: /var/log/httpd/access_log
-	error_log: /var/log/httpd/error_log
+    access_log: /var/log/httpd/access_log
+    error_log: /var/log/httpd/error_log
 commands:
-	varnish: varnishlog
-	varnish_url: varnishlog -g request | grep reqURL
-	varnish_hit: varnishlog -q \"VCL_call eq 'HIT'\" -d
-	varnish_miss: varnishlog -q \"VCL_call eq 'MISS'\" -d
-	varnish_security: varnishlog | grep security.vcl
+    varnish: varnishlog
+    varnish_url: varnishlog -g request | grep reqURL
+    varnish_hit: varnishlog -q \"VCL_call eq 'HIT'\" -d
+    varnish_miss: varnishlog -q \"VCL_call eq 'MISS'\" -d
+    varnish_security: varnishlog | grep security.vcl
 hosts:
-	- google.web1
-`
+    - google.web1`
 
 // Server struct
 type Server struct {
@@ -163,9 +167,9 @@ func main() {
 	switch os.Args[1] {
 	case "init":
 
-		if _, err := os.Stat(os.Getenv("HOME") + "/.rtail"); os.IsNotExist(err) {
+		if _, err := os.Stat(os.Getenv("HOME") + "/" + configFileName); os.IsNotExist(err) {
 			fmt.Println("creating config file in home directory")
-			f, err := os.Create(os.Getenv("HOME") + "/.rtail")
+			f, err := os.Create(os.Getenv("HOME") + "/" + configFileName)
 			if err != nil {
 				fmt.Println(err)
 			} else {
@@ -173,7 +177,7 @@ func main() {
 				f.Close()
 			}
 		} else {
-			fmt.Println(colors[1](".rtail config file already exists in home directory"))
+			fmt.Println(colors["red"](configFileName + " config file already exists in home directory"))
 		}
 		break
 	default:
@@ -264,11 +268,22 @@ func execShorcodes(name string) string {
 	return name
 }
 
+func randMapValue(m interface{}) string {
+	i := rand.Intn(len(m.(map[string]func(...interface{}) string)))
+	for k := range m.(map[string]func(...interface{}) string) {
+		if i == 0 {
+			return k
+		}
+		i--
+	}
+	panic("never")
+}
+
 // Connect trying t connect to the server passed
 func Connect(server *Server) {
 
 	// Use a random color from the color list
-	c := colors[rand.Intn(len(colors))]
+	c := colors[randMapValue(colors)]
 	fmt.Printf("[%v] trying to connect as %v \n", c(server.host), server.user)
 
 	keys := []string{os.Getenv("HOME") + "/.ssh/id_rsa", os.Getenv("HOME") + "/.ssh/id_dsa"}
