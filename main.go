@@ -286,7 +286,10 @@ func Connect(server *Server) {
 	c := colors[randMapValue(colors)]
 	fmt.Printf("[%v] trying to connect as %v \n", c(server.host), server.user)
 
-	keys := []string{os.Getenv("HOME") + "/.ssh/id_rsa", os.Getenv("HOME") + "/.ssh/id_dsa"}
+	keys := []string{
+		os.Getenv("HOME") + "/.ssh/id_rsa",
+		os.Getenv("HOME") + "/.ssh/id_dsa",
+	}
 
 	if len(*identity) > 0 {
 		keys = *identity
