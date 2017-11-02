@@ -37,6 +37,7 @@ var (
 	}
 
 	config     = new(Config)
+	sudo       = kingpin.Flag("sudo", "should we sudo after logging in").Bool()
 	configFile = kingpin.Flag("config", "path to config, different from default").String()
 	identity   = kingpin.Flag("indetityFile", "path to the identity file").Short('i').Strings()
 
@@ -95,6 +96,10 @@ func (i *serverList) Set(value string) error {
 		fileToLog = logFileShorcodes(fileSplit[1])
 		value = fileSplit[0]
 		cmdString = fmt.Sprintf("tail -f %v", fileToLog)
+	}
+
+	if *sudo {
+		cmdString = "sudo " + cmdString
 	}
 
 	*i = append(*i, Server{user, value, cmdString})
